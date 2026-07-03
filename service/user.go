@@ -8,6 +8,8 @@ import (
 	"github.com/admin8800/s-ui/database/model"
 	"github.com/admin8800/s-ui/logger"
 	"github.com/admin8800/s-ui/util/common"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
@@ -60,13 +62,18 @@ func (s *UserService) CheckUser(username string, password string, remoteIP strin
 
 	user := &model.User{}
 	err := db.Model(model.User{}).
-		Where("username = ? and password = ?", username, password).
+		Where("username = ?", username).
 		First(user).
 		Error
 	if database.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		logger.Warning("check user err:", err, " IP: ", remoteIP)
+		return nil
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
 		return nil
 	}
 
@@ -93,12 +100,20 @@ func (s *UserService) GetUsers() (*[]model.User, error) {
 func (s *UserService) ChangePass(id string, oldPass string, newUser string, newPass string) error {
 	db := database.GetDB()
 	user := &model.User{}
-	err := db.Model(model.User{}).Where("id = ? AND password = ?", id, oldPass).First(user).Error
+	err := db.Model(model.User{}).Where("id = ?", id).First(user).Error
 	if err != nil || database.IsNotFound(err) {
 		return err
 	}
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(oldPass))
+	if err != nil {
+		return err
+	}
 	user.Username = newUser
-	user.Password = newPass
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPass), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	user.Password = string(hashedPassword)
 	return db.Save(user).Error
 }
 

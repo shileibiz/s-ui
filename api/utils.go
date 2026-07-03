@@ -19,8 +19,10 @@ type Msg struct {
 func getRemoteIp(c *gin.Context) string {
 	value := c.GetHeader("X-Forwarded-For")
 	if value != "" {
-		ips := strings.Split(value, ",")
-		return ips[0]
+		if strings.Contains(value, ",") {
+			return ""
+		}
+		return value
 	} else {
 		addr := c.Request.RemoteAddr
 		ip, _, _ := net.SplitHostPort(addr)

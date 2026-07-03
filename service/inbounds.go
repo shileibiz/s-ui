@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"strings"
 
@@ -250,7 +249,7 @@ func (s *InboundService) hasUser(inboundType string) bool {
 	return false
 }
 
-func (s *InboundService) fetchUsers(db *gorm.DB, inboundType string, condition string, inbound map[string]interface{}) ([]json.RawMessage, error) {
+func (s *InboundService) fetchUsers(db *gorm.DB, inboundType string, condition string, args []interface{}, inbound map[string]interface{}) ([]json.RawMessage, error) {
 	if inboundType == "shadowtls" {
 		version, _ := inbound["version"].(float64)
 		if int(version) < 3 {
@@ -266,10 +265,10 @@ func (s *InboundService) fetchUsers(db *gorm.DB, inboundType string, condition s
 
 	var users []string
 
-	err := db.Raw(
-		fmt.Sprintf(`SELECT json_extract(clients.config, "$.%s")
-		FROM clients WHERE enable = true AND %s`,
-			inboundType, condition)).Scan(&users).Error
+	jsonPath := "$." + inboundType
+	query := `SELECT json_extract(clients.config, ?) FROM clients WHERE enable = true AND ` + condition
+	newArgs := append([]interface{}{jsonPath}, args...)
+	err := db.Raw(query, newArgs...).Scan(&users).Error
 	if err != nil {
 		return nil, err
 	}
@@ -294,8 +293,8 @@ func (s *InboundService) addUsers(db *gorm.DB, inboundJson []byte, inboundId uin
 		return nil, err
 	}
 
-	condition := fmt.Sprintf("%d IN (SELECT json_each.value FROM json_each(clients.inbounds))", inboundId)
-	inbound["users"], err = s.fetchUsers(db, inboundType, condition, inbound)
+	condition := "? IN (SELECT json_each.value FROM json_each(clients.inbounds))"
+	inbound["users"], err = s.fetchUsers(db, inboundType, condition, []interface{}{inboundId}, inbound)
 	if err != nil {
 		return nil, err
 	}
@@ -319,8 +318,8 @@ func (s *InboundService) initUsers(db *gorm.DB, inboundJson []byte, clientIds st
 		return nil, err
 	}
 
-	condition := fmt.Sprintf("id IN (%s)", strings.Join(ClientIds, ","))
-	inbound["users"], err = s.fetchUsers(db, inboundType, condition, inbound)
+	condition := "id IN (?)"
+	inbound["users"], err = s.fetchUsers(db, inboundType, condition, []interface{}{ClientIds}, inbound)
 	if err != nil {
 		return nil, err
 	}

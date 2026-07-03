@@ -149,10 +149,16 @@ func (f *defaultFactory) NewLogger(tag string) log.ContextLogger {
 }
 
 func (f *defaultFactory) Subscribe() (subscription observable.Subscription[log.Entry], done <-chan struct{}, err error) {
+	if f.observer == nil {
+		return nil, nil, nil
+	}
 	return f.observer.Subscribe()
 }
 
 func (f *defaultFactory) UnSubscribe(sub observable.Subscription[log.Entry]) {
+	if f.observer == nil {
+		return
+	}
 	f.observer.UnSubscribe(sub)
 }
 

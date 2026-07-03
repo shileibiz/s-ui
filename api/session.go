@@ -19,8 +19,10 @@ func init() {
 
 func SetLoginUser(c *gin.Context, userName string, maxAge int) error {
 	options := sessions.Options{
-		Path:   "/",
-		Secure: false,
+		Path:     "/",
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: 1,
 	}
 	if maxAge > 0 {
 		options.MaxAge = maxAge * 60

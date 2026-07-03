@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/http"
 	"strings"
 
 	"github.com/admin8800/s-ui/util/common"
@@ -22,6 +23,20 @@ func NewAPIHandler(g *gin.RouterGroup, a2 *APIv2Handler) {
 
 func (a *APIHandler) initRouter(g *gin.RouterGroup) {
 	g.Use(func(c *gin.Context) {
+		host := c.Request.Host
+		origin := c.GetHeader("Origin")
+		referer := c.GetHeader("Referer")
+		if origin != "" && !strings.HasPrefix(origin, "http://" + host) && !strings.HasPrefix(origin, "https://" + host) {
+			c.AbortWithStatusJSON(http.StatusForbidden, Msg{Msg: "invalid origin"})
+			return
+		}
+		if referer != "" {
+			refHost := getHostnameFromReferer(referer)
+			if refHost != "" && refHost != host {
+				c.AbortWithStatusJSON(http.StatusForbidden, Msg{Msg: "invalid referer"})
+				return
+			}
+		}
 		path := c.Request.URL.Path
 		if !strings.HasSuffix(path, "login") && !strings.HasSuffix(path, "logout") {
 			checkLogin(c)
@@ -104,4 +119,18 @@ func (a *APIHandler) getHandler(c *gin.Context) {
 	default:
 		jsonMsg(c, "failed", common.NewError("unknown action: ", action))
 	}
+}
+
+func getHostnameFromReferer(referer string) string {
+	referer = strings.TrimPrefix(referer, "https://")
+	referer = strings.TrimPrefix(referer, "http://")
+	idx := strings.Index(referer, "/")
+	if idx != -1 {
+		referer = referer[:idx]
+	}
+	idx = strings.Index(referer, ":")
+	if idx != -1 {
+		referer = referer[:idx]
+	}
+	return referer
 }

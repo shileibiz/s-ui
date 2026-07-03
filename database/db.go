@@ -10,6 +10,7 @@ import (
 	"github.com/admin8800/s-ui/config"
 	"github.com/admin8800/s-ui/database/model"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,9 +25,13 @@ func initUser() error {
 		return err
 	}
 	if count == 0 {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
 		user := &model.User{
 			Username: "admin",
-			Password: "admin",
+			Password: string(hashedPassword),
 		}
 		return db.Create(user).Error
 	}

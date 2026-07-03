@@ -267,7 +267,7 @@ func (s *ConfigService) CheckChanges(lu string) (bool, error) {
 	if LastUpdate == 0 {
 		db := database.GetDB()
 		var count int64
-		err := db.Model(model.Changes{}).Where("date_time > " + lu).Count(&count).Error
+		err := db.Model(model.Changes{}).Where("date_time > ?", lu).Count(&count).Error
 		if err == nil {
 			LastUpdate = time.Now().Unix()
 		}
@@ -281,15 +281,18 @@ func (s *ConfigService) CheckChanges(lu string) (bool, error) {
 func (s *ConfigService) GetChanges(actor string, chngKey string, count string) []model.Changes {
 	c, _ := strconv.Atoi(count)
 	whereString := "`id`>0"
+	var args []interface{}
 	if len(actor) > 0 {
-		whereString += " and `actor`='" + actor + "'"
+		whereString += " and `actor`=?"
+		args = append(args, actor)
 	}
 	if len(chngKey) > 0 {
-		whereString += " and `key`='" + chngKey + "'"
+		whereString += " and `key`=?"
+		args = append(args, chngKey)
 	}
 	db := database.GetDB()
 	var chngs []model.Changes
-	err := db.Model(model.Changes{}).Where(whereString).Order("`id` desc").Limit(c).Scan(&chngs).Error
+	err := db.Model(model.Changes{}).Where(whereString, args...).Order("`id` desc").Limit(c).Scan(&chngs).Error
 	if err != nil {
 		logger.Warning(err)
 	}
